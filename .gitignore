@@ -8,3 +8,6 @@ build/
 .pytest_cache/
 backups/
 *.log
+
+# macOS
+.DS_Store

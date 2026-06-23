@@ -1,0 +1,19 @@
+# Ford module registry. CAN IDs as hex strings. Confirm IDs during Task 4.
+- id: BCM
+  name: Body Control Module
+  request_id: '0x726'
+  response_id: '0x72E'
+  bus: HS-CAN-FD
+  security_level: '0x01'
+- id: IPC
+  name: Instrument Panel Cluster
+  request_id: '0x720'
+  response_id: '0x728'
+  bus: HS-CAN-FD
+  security_level: '0x01'
+- id: APIM
+  name: Accessory Protocol Interface Module (SYNC)
+  request_id: '0x7D0'
+  response_id: '0x7D8'
+  bus: HS-CAN-FD
+  security_level: '0x01'

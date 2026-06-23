@@ -17,3 +17,9 @@
   response_id: '0x7D8'
   bus: HS-CAN-FD
   security_level: '0x01'
+- id: ABS
+  name: Anti-lock Brake System / drive-mode module
+  request_id: '0x760'
+  response_id: '0x768'
+  bus: HS-CAN-FD
+  security_level: '0x01'  # write level TBD — confirm in Plan 2

@@ -80,6 +80,9 @@ def read(
     module: str = typer.Argument(..., help="Module id, e.g. BCM"),
     did: str = typer.Argument(..., help="Data identifier, e.g. 0xDE00"),
     port: str = typer.Option(..., "--port", help="Serial device"),
+    session: bool = typer.Option(
+        False, "--session", "-s", help="Open an extended diagnostic session (0x10 0x03) first"
+    ),
 ):
     """Read and decode an As-Built block."""
     modules = load_modules()
@@ -88,7 +91,7 @@ def read(
         raise typer.Exit(code=1)
     with _hardware_errors():
         uds = build_uds(port)
-        block = read_block(uds, modules[module], int(did, 0))
+        block = read_block(uds, modules[module], int(did, 0), extended_session=session)
     console.print(block.render())
 
 
@@ -98,6 +101,9 @@ def scan_dids(
     port: str = typer.Option(..., "--port", help="Serial device"),
     start: str = typer.Option("0xDE00", "--start", help="First DID to try"),
     end: str = typer.Option("0xDEFF", "--end", help="Last DID to try"),
+    session: bool = typer.Option(
+        False, "--session", "-s", help="Open an extended diagnostic session (0x10 0x03) first"
+    ),
 ):
     """Discover which DIDs a module supports by sweeping a range (read-only)."""
     modules = load_modules()
@@ -106,7 +112,9 @@ def scan_dids(
         raise typer.Exit(code=1)
     with _hardware_errors():
         uds = build_uds(port)
-        hits = sweep_dids(uds, modules[module], int(start, 0), int(end, 0))
+        hits = sweep_dids(
+            uds, modules[module], int(start, 0), int(end, 0), extended_session=session
+        )
     if not hits:
         console.print(
             f"No supported DIDs found in {start}–{end} for {module}. "

@@ -8,6 +8,7 @@ def _modules():
     return {
         "BCM": Module("BCM", "Body Control Module", 0x726, 0x72E, "HS-CAN-FD", 0x01),
         "IPC": Module("IPC", "Instrument Panel Cluster", 0x720, 0x728, "HS-CAN-FD", 0x01),
+        "ABS": Module("ABS", "Anti-lock Brake System", 0x760, 0x768, "HS-CAN-FD", 0x01),
     }
 
 
@@ -52,3 +53,32 @@ def test_sweep_dids_returns_only_supported_dids():
     uds = UdsClient(MockAdapter(handler))
     hits = sweep_dids(uds, _modules()["BCM"], 0xDE00, 0xDE03)
     assert hits == [(0xDE01, bytes([0xAA, 0xBB]))]
+
+
+def test_read_block_opens_extended_session_first_when_requested():
+    seen = []
+
+    def handler(target, payload):
+        seen.append(payload)
+        if payload[0] == 0x10:  # DiagnosticSessionControl
+            return bytes([0x50, 0x03])
+        return bytes([0x62, 0xDE, 0x04, 0xAA, 0xBB, 0xCC])
+
+    uds = UdsClient(MockAdapter(handler))
+    block = read_block(uds, _modules()["ABS"], 0xDE04, extended_session=True)
+    assert seen[0] == bytes([0x10, 0x03])  # session opened before the read
+    assert block.raw == bytes([0xAA, 0xBB, 0xCC])
+
+
+def test_sweep_dids_opens_extended_session_first_when_requested():
+    seen = []
+
+    def handler(target, payload):
+        seen.append(payload)
+        if payload[0] == 0x10:
+            return bytes([0x50, 0x03])
+        return bytes([0x7F, 0x22, 0x31])
+
+    uds = UdsClient(MockAdapter(handler))
+    sweep_dids(uds, _modules()["ABS"], 0xDE00, 0xDE01, extended_session=True)
+    assert seen[0] == bytes([0x10, 0x03])

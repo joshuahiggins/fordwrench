@@ -5,6 +5,7 @@ from fordwrench.asbuilt.block import AsBuiltBlock
 from fordwrench.config import Module
 from fordwrench.uds.client import UdsClient
 from fordwrench.uds.dtc import Dtc
+from fordwrench.uds.errors import NegativeResponse
 
 
 def probe_modules(adapter, modules: dict[str, Module]) -> list[Module]:
@@ -29,3 +30,20 @@ def read_block(uds: UdsClient, module: Module, did: int) -> AsBuiltBlock:
 def read_module_dtcs(uds: UdsClient, module: Module) -> list[Dtc]:
     uds.set_target(module.request_id, module.response_id)
     return uds.read_dtcs()
+
+
+def sweep_dids(
+    uds: UdsClient, module: Module, start: int, end: int
+) -> list[tuple[int, bytes]]:
+    """Read every DID in [start, end] and return (did, data) for the ones the
+    module supports. Unsupported DIDs (requestOutOfRange) and adapter hiccups
+    are skipped. Read-only and non-destructive (UDS service 0x22)."""
+    uds.set_target(module.request_id, module.response_id)
+    hits: list[tuple[int, bytes]] = []
+    for did in range(start, end + 1):
+        try:
+            data = uds.read_data_by_identifier(did)
+        except (NegativeResponse, AdapterError):
+            continue
+        hits.append((did, data))
+    return hits

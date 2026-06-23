@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.table import Table
 
 from fordwrench.adapter.elm import AdapterError, ElmAdapter
-from fordwrench.commands import probe_modules, read_block, read_module_dtcs
+from fordwrench.commands import probe_modules, read_block, read_module_dtcs, sweep_dids
 from fordwrench.config import load_modules
 from fordwrench.transport.serial_port import SerialTransport, list_serial_ports
 from fordwrench.uds.client import UdsClient
@@ -90,6 +90,35 @@ def read(
         uds = build_uds(port)
         block = read_block(uds, modules[module], int(did, 0))
     console.print(block.render())
+
+
+@app.command(name="scan-dids")
+def scan_dids(
+    module: str = typer.Argument(..., help="Module id, e.g. BCM"),
+    port: str = typer.Option(..., "--port", help="Serial device"),
+    start: str = typer.Option("0xDE00", "--start", help="First DID to try"),
+    end: str = typer.Option("0xDEFF", "--end", help="Last DID to try"),
+):
+    """Discover which DIDs a module supports by sweeping a range (read-only)."""
+    modules = load_modules()
+    if module not in modules:
+        console.print(f"[red]Unknown module: {module}[/red]")
+        raise typer.Exit(code=1)
+    with _hardware_errors():
+        uds = build_uds(port)
+        hits = sweep_dids(uds, modules[module], int(start, 0), int(end, 0))
+    if not hits:
+        console.print(
+            f"No supported DIDs found in {start}–{end} for {module}. "
+            "Try a different range (e.g. --start 0xF100 --end 0xF1FF)."
+        )
+        return
+    table = Table(title=f"Supported DIDs — {module}")
+    table.add_column("DID")
+    table.add_column("Bytes")
+    for did, data in hits:
+        table.add_row(f"0x{did:04X}", " ".join(f"{b:02X}" for b in data))
+    console.print(table)
 
 
 @app.command()

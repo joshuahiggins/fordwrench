@@ -1,6 +1,6 @@
 from fordwrench.adapter.elm import AdapterError, MockAdapter
 from fordwrench.config import Module
-from fordwrench.commands import probe_modules, read_block, read_module_dtcs
+from fordwrench.commands import probe_modules, read_block, read_module_dtcs, sweep_dids
 from fordwrench.uds.client import UdsClient
 
 
@@ -40,3 +40,15 @@ def test_read_module_dtcs_targets_module():
     uds = UdsClient(MockAdapter(handler))
     dtcs = read_module_dtcs(uds, _modules()["IPC"])
     assert [d.code for d in dtcs] == ["P0420-00"]
+
+
+def test_sweep_dids_returns_only_supported_dids():
+    def handler(target, payload):
+        did = (payload[1] << 8) | payload[2]
+        if did == 0xDE01:
+            return bytes([0x62, 0xDE, 0x01, 0xAA, 0xBB])
+        return bytes([0x7F, 0x22, 0x31])  # requestOutOfRange
+
+    uds = UdsClient(MockAdapter(handler))
+    hits = sweep_dids(uds, _modules()["BCM"], 0xDE00, 0xDE03)
+    assert hits == [(0xDE01, bytes([0xAA, 0xBB]))]

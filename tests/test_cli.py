@@ -58,6 +58,23 @@ def test_read_unknown_module_errors(monkeypatch):
     assert "Unknown module" in result.stdout
 
 
+def test_scan_dids_lists_supported_dids(monkeypatch):
+    def handler(target, payload):
+        did = (payload[1] << 8) | payload[2]
+        if did == 0xDE01:
+            return bytes([0x62, 0xDE, 0x01, 0xAA, 0xBB])
+        return bytes([0x7F, 0x22, 0x31])  # requestOutOfRange
+
+    monkeypatch.setattr(cli_mod, "build_uds", lambda port: UdsClient(MockAdapter(handler)))
+    result = runner.invoke(
+        cli_mod.app,
+        ["scan-dids", "BCM", "--port", "/dev/fake", "--start", "0xDE00", "--end", "0xDE03"],
+    )
+    assert result.exit_code == 0
+    assert "0xDE01" in result.stdout
+    assert "AA BB" in result.stdout
+
+
 def test_read_negative_response_prints_clean_message_not_traceback(monkeypatch):
     def handler(target, payload):
         return bytes([0x7F, 0x22, 0x31])  # requestOutOfRange

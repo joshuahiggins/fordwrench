@@ -75,6 +75,36 @@ def test_scan_dids_lists_supported_dids(monkeypatch):
     assert "AA BB" in result.stdout
 
 
+def test_snapshot_writes_file(monkeypatch, tmp_path):
+    def handler(target, payload):
+        if payload[0] == 0x19:
+            return bytes([0x59, 0x02, 0xFF])  # no DTCs
+        return bytes([0x7F, 0x22, 0x31])  # no As-Built in range
+
+    monkeypatch.setattr(cli_mod, "build_uds", lambda port: UdsClient(MockAdapter(handler)))
+    out = tmp_path / "snap.json"
+    result = runner.invoke(
+        cli_mod.app,
+        ["snapshot", "--port", "/dev/fake", "--out", str(out), "--start", "0xDE00", "--end", "0xDE01"],
+    )
+    assert result.exit_code == 0
+    assert out.exists()
+    assert "Saved to" in result.stdout
+
+
+def test_snapshot_diff_cli_reports_changes(tmp_path):
+    import json
+
+    old = tmp_path / "old.json"
+    new = tmp_path / "new.json"
+    old.write_text(json.dumps({"modules": {"BCM": {"dtcs": [], "asbuilt": {"0xDE02": "00"}}}}))
+    new.write_text(json.dumps({"modules": {"BCM": {"dtcs": [], "asbuilt": {"0xDE02": "01"}}}}))
+    result = runner.invoke(cli_mod.app, ["snapshot-diff", str(old), str(new)])
+    assert result.exit_code == 0
+    assert "DE02" in result.stdout
+    assert "00 -> 01" in result.stdout
+
+
 def test_read_negative_response_prints_clean_message_not_traceback(monkeypatch):
     def handler(target, payload):
         return bytes([0x7F, 0x22, 0x31])  # requestOutOfRange

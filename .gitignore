@@ -14,3 +14,6 @@ backups/
 
 # Local-only design docs (not for public repo)
 docs/superpowers/
+
+# Vehicle snapshots (contain VIN/identifiable data — local only)
+snapshots/

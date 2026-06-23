@@ -1,18 +1,45 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+
+import serial
 import typer
 from rich.console import Console
 from rich.table import Table
 
-from fordwrench.adapter.elm import ElmAdapter
+from fordwrench.adapter.elm import AdapterError, ElmAdapter
 from fordwrench.commands import probe_modules, read_block, read_module_dtcs
 from fordwrench.config import load_modules
 from fordwrench.transport.serial_port import SerialTransport, list_serial_ports
 from fordwrench.uds.client import UdsClient
 from fordwrench.uds.dtc import status_labels
+from fordwrench.uds.errors import NegativeResponse
 
 app = typer.Typer(help="Read/write Ford As-Built config and DTCs over OBD-II.")
 console = Console()
+
+
+@contextmanager
+def _hardware_errors():
+    """Turn hardware/protocol exceptions into clean messages + non-zero exit."""
+    try:
+        yield
+    except NegativeResponse as exc:
+        console.print(f"[red]{exc}[/red]")
+        if exc.nrc == 0x31:  # requestOutOfRange
+            console.print(
+                "[yellow]Hint: the module answered but has no such DID. "
+                "Check the DID (not the module's CAN ID) against community "
+                "As-Built docs.[/yellow]"
+            )
+        raise typer.Exit(code=1)
+    except AdapterError as exc:
+        console.print(f"[red]Adapter error: {exc}[/red]")
+        raise typer.Exit(code=1)
+    except serial.SerialException as exc:
+        console.print(f"[red]Serial error: {exc}[/red]")
+        console.print("[yellow]Hint: check the --port value and that the adapter is plugged in.[/yellow]")
+        raise typer.Exit(code=1)
 
 
 def build_uds(port: str) -> UdsClient:
@@ -35,8 +62,9 @@ def scan(port: str = typer.Option(None, "--port", help="Serial device. Omit to l
         console.print(table)
         return
 
-    uds = build_uds(port)
-    responders = probe_modules(uds.adapter, load_modules())
+    with _hardware_errors():
+        uds = build_uds(port)
+        responders = probe_modules(uds.adapter, load_modules())
     table = Table(title="Responding modules")
     table.add_column("ID")
     table.add_column("Name")
@@ -58,8 +86,9 @@ def read(
     if module not in modules:
         console.print(f"[red]Unknown module: {module}[/red]")
         raise typer.Exit(code=1)
-    uds = build_uds(port)
-    block = read_block(uds, modules[module], int(did, 0))
+    with _hardware_errors():
+        uds = build_uds(port)
+        block = read_block(uds, modules[module], int(did, 0))
     console.print(block.render())
 
 
@@ -73,8 +102,9 @@ def dtc(
     if module not in modules:
         console.print(f"[red]Unknown module: {module}[/red]")
         raise typer.Exit(code=1)
-    uds = build_uds(port)
-    codes = read_module_dtcs(uds, modules[module])
+    with _hardware_errors():
+        uds = build_uds(port)
+        codes = read_module_dtcs(uds, modules[module])
     if not codes:
         console.print(f"No DTCs reported by {module}.")
         return

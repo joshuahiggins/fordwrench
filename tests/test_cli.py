@@ -56,3 +56,15 @@ def test_read_unknown_module_errors(monkeypatch):
     result = runner.invoke(cli_mod.app, ["read", "NOPE", "0xDE00", "--port", "/dev/fake"])
     assert result.exit_code != 0
     assert "Unknown module" in result.stdout
+
+
+def test_read_negative_response_prints_clean_message_not_traceback(monkeypatch):
+    def handler(target, payload):
+        return bytes([0x7F, 0x22, 0x31])  # requestOutOfRange
+
+    monkeypatch.setattr(cli_mod, "build_uds", lambda port: UdsClient(MockAdapter(handler)))
+    result = runner.invoke(cli_mod.app, ["read", "BCM", "0x726", "--port", "/dev/fake"])
+    assert result.exit_code == 1
+    assert "requestOutOfRange" in result.stdout
+    assert "Hint" in result.stdout
+    assert "Traceback" not in result.stdout

@@ -46,6 +46,14 @@ def test_request_raises_on_no_data():
         ElmAdapter(t).request(bytes([0x22, 0xDE, 0x00]))
 
 
+def test_request_raises_adapter_error_on_truncated_hex():
+    # A noisy bus can return odd-length / non-hex data; it must surface as an
+    # AdapterError (not a raw ValueError) so probe_modules treats it as a miss.
+    t = MockTransport({"22DE00": "62DE0004010\r>"})  # odd number of hex digits
+    with pytest.raises(AdapterError):
+        ElmAdapter(t).request(bytes([0x22, 0xDE, 0x00]))
+
+
 def test_mock_adapter_routes_through_handler():
     def handler(target, payload):
         assert target == 0x726

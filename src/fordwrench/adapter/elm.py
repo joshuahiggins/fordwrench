@@ -64,7 +64,13 @@ class ElmAdapter:
         hexstr = "".join(chunks)
         if not hexstr:
             raise AdapterError("empty response")
-        return bytes.fromhex(hexstr)
+        try:
+            return bytes.fromhex(hexstr)
+        except ValueError as exc:
+            # A noisy bus or truncated frame can yield odd-length / non-hex
+            # data; surface it as an AdapterError so callers (e.g. probe_modules)
+            # treat it as a failed response rather than crashing.
+            raise AdapterError(f"non-hex response: {hexstr!r}") from exc
 
 
 class MockAdapter:

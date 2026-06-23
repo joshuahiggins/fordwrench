@@ -11,3 +11,6 @@ backups/
 
 # macOS
 .DS_Store
+
+# Local-only design docs (not for public repo)
+docs/superpowers/

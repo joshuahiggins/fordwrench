@@ -9,6 +9,8 @@ STATUS_BITS: list[tuple[int, str]] = [
     (0x02, "testFailedThisCycle"),
     (0x04, "pending"),
     (0x08, "confirmed"),
+    (0x10, "testNotCompletedSinceClear"),
+    (0x20, "testFailedSinceClear"),
     (0x40, "testNotCompletedThisCycle"),
     (0x80, "warningIndicatorRequested"),
 ]

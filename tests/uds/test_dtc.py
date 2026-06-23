@@ -18,6 +18,10 @@ def test_status_labels_confirmed_and_pending():
     assert "pending" in labels
 
 
+def test_status_labels_failed_since_clear():
+    assert status_labels(0x20) == ["testFailedSinceClear"]
+
+
 def test_read_dtcs_parses_records():
     def handler(target, payload):
         assert payload == bytes([0x19, 0x02, 0xFF])

@@ -50,18 +50,31 @@ class ElmAdapter:
 
     @staticmethod
     def _parse_response(raw: str) -> bytes:
-        chunks: list[str] = []
+        lines: list[str] = []
         for line in raw.replace("\r", "\n").splitlines():
             line = line.strip()
             if not line or line == ">":
                 continue
             if any(tok in line.upper() for tok in _ERROR_TOKENS):
                 raise AdapterError(line)
-            # Strip an ELM multi-line index prefix like "0:" or "1:".
-            if ":" in line[:3]:
+            # Strip an ELM multi-frame line-index prefix like "0:" / "1A:".
+            if ":" in line[:4]:
                 line = line.split(":", 1)[1]
-            chunks.append(line.replace(" ", ""))
-        hexstr = "".join(chunks)
+            lines.append(line.replace(" ", ""))
+        if not lines:
+            raise AdapterError("empty response")
+        # ELM prefixes a multi-frame response with a length-header line (total
+        # payload byte count, in hex). Drop it and truncate any trailing ISO-TP
+        # padding to that declared length so callers don't see phantom bytes.
+        hexstr = "".join(lines)
+        if len(lines) > 1 and len(lines[0]) <= 3:
+            try:
+                declared = int(lines[0], 16)
+            except ValueError:
+                declared = -1
+            rest = "".join(lines[1:])
+            if 0 < declared <= len(rest) // 2:
+                hexstr = rest[: declared * 2]
         if not hexstr:
             raise AdapterError("empty response")
         try:

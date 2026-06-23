@@ -40,6 +40,14 @@ def test_request_assembles_multiline_indexed_response():
     assert resp == bytes([0x62, 0xDE, 0x00, 0x04, 0x01, 0x00, 0x17, 0xAA, 0xBB])
 
 
+def test_request_drops_multiframe_length_header_and_padding():
+    # ELM multi-frame: "00B" = 11 payload bytes; trailing CC is ISO-TP padding.
+    raw = "00B\r0:5902FB112233\r1:0844556608CCCCCC\r>"
+    t = MockTransport({"1902FF": raw})
+    resp = ElmAdapter(t).request(bytes([0x19, 0x02, 0xFF]))
+    assert resp == bytes.fromhex("5902FB1122330844556608")
+
+
 def test_request_raises_on_no_data():
     t = MockTransport({"22DE00": "NO DATA\r>"})
     with pytest.raises(AdapterError):
